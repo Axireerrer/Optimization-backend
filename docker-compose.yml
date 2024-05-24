@@ -1,0 +1,83 @@
+services:
+  postgres:
+    image: postgres:latest
+    hostname: postgres
+    container_name: POSTGRES
+    environment:
+      - POSTGRES_DB=dbname
+      - POSTGRES_USER=dbuser
+      - POSTGRES_PASSWORD=pass
+
+  django:
+    container_name: DJANGO
+    build:
+      context: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/service
+    command: sh -c "cd service && python manage.py runserver 0.0.0.0:8000"
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - DB_HOST=postgres
+      - DB_NAME=dbname
+      - DB_USER=dbuser
+      - DB_PASSWORD=pass
+      - DB_PORT=5432
+
+  redis:
+    container_name: REDIS
+    image: redis:latest
+    hostname: redis
+
+  worker1:
+    volumes:
+      - .:/service
+    container_name: CELERY_worker1
+    build:
+      context: .
+    command: sh -c "cd service && celery -A service worker --loglevel=INFO"
+    depends_on:
+      - redis
+      - postgres
+    environment:
+      - DB_HOST=postgres
+      - DB_NAME=dbname
+      - DB_USER=dbuser
+      - DB_PASSWORD=pass
+      - DB_PORT=5432
+
+  worker2:
+    volumes:
+      - .:/service
+    container_name: CELERY_worker2
+    build:
+      context: .
+    command: sh -c "cd service && celery -A service worker --loglevel=INFO"
+    depends_on:
+      - redis
+      - postgres
+    environment:
+      - DB_HOST=postgres
+      - DB_NAME=dbname
+      - DB_USER=dbuser
+      - DB_PASSWORD=pass
+      - DB_PORT=5432
+
+
+  flower:
+    build:
+      context: .
+    container_name: FLOWER
+    volumes:
+      - .:/service
+    ports:
+      - "5555:5555"
+    command: sh -c "cd service && celery -A service flower"
+    depends_on:
+      - redis
+
+
+
